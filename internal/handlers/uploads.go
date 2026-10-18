@@ -11,7 +11,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	"github.com/yourname/fiberblog/internal/store"
+	"github.com/harshadptl/gcore/internal/store"
 )
 
 // allowedImageTypes maps sniffed MIME types to file extensions.

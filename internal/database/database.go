@@ -20,8 +20,8 @@ import (
 	"github.com/uptrace/bun/extra/bunslog"
 	"github.com/uptrace/bun/migrate"
 
-	"github.com/yourname/fiberblog/internal/database/migrations"
-	"github.com/yourname/fiberblog/internal/models"
+	"github.com/harshadptl/gcore/internal/database/migrations"
+	"github.com/harshadptl/gcore/internal/models"
 )
 
 // Options configures Open.

@@ -8,7 +8,7 @@ import (
 	"encoding/hex"
 	"time"
 
-	"github.com/yourname/fiberblog/internal/models"
+	"github.com/harshadptl/gcore/internal/models"
 )
 
 // NewToken returns a random URL-safe token with 256 bits of entropy.

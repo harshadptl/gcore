@@ -1,5 +1,5 @@
 /*
- * Fiberblog styles, layered on top of Oat UI (https://oat.ink).
+ * gcore styles, layered on top of Oat UI (https://oat.ink).
  *
  * Oat styles semantic HTML inside CSS @layers. Rules in this file are
  * un-layered, so they win over Oat without !important. Keep selectors scoped

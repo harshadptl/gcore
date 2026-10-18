@@ -8,7 +8,7 @@ package view
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import "github.com/yourname/fiberblog/internal/models"
+import "github.com/harshadptl/gcore/internal/models"
 
 // CSRFField embeds the session's CSRF token in a form.
 func CSRFField(token string) templ.Component {

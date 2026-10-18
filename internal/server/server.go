@@ -19,10 +19,10 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/requestid"
 	"github.com/gofiber/fiber/v3/middleware/static"
 
-	"github.com/yourname/fiberblog/internal/config"
-	"github.com/yourname/fiberblog/internal/handlers"
-	"github.com/yourname/fiberblog/internal/store"
-	"github.com/yourname/fiberblog/web"
+	"github.com/harshadptl/gcore/internal/config"
+	"github.com/harshadptl/gcore/internal/handlers"
+	"github.com/harshadptl/gcore/internal/store"
+	"github.com/harshadptl/gcore/web"
 )
 
 // contentSecurityPolicy allows our own scripts/styles plus images from any

@@ -11,12 +11,12 @@ import (
 	"github.com/a-h/templ"
 	"github.com/gofiber/fiber/v3"
 
-	"github.com/yourname/fiberblog/internal/auth"
-	"github.com/yourname/fiberblog/internal/config"
-	"github.com/yourname/fiberblog/internal/markdown"
-	"github.com/yourname/fiberblog/internal/models"
-	"github.com/yourname/fiberblog/internal/store"
-	"github.com/yourname/fiberblog/internal/view"
+	"github.com/harshadptl/gcore/internal/auth"
+	"github.com/harshadptl/gcore/internal/config"
+	"github.com/harshadptl/gcore/internal/markdown"
+	"github.com/harshadptl/gcore/internal/models"
+	"github.com/harshadptl/gcore/internal/store"
+	"github.com/harshadptl/gcore/internal/view"
 )
 
 // Locals keys set by middleware.

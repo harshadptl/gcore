@@ -5,7 +5,7 @@ import (
 
 	"github.com/uptrace/bun"
 
-	"github.com/yourname/fiberblog/internal/models"
+	"github.com/harshadptl/gcore/internal/models"
 )
 
 // CommentsForPost returns a post's comments, oldest first.

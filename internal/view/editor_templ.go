@@ -8,7 +8,7 @@ package view
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import "github.com/yourname/fiberblog/internal/models"
+import "github.com/harshadptl/gcore/internal/models"
 
 func editorAction(d EditorData) string {
 	if d.IsNew() {

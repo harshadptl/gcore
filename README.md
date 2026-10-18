@@ -1,4 +1,4 @@
-# Fiberblog
+# gcore
 
 A production-minded Go boilerplate for a multi-author blog:
 

@@ -7,8 +7,8 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	"github.com/yourname/fiberblog/internal/models"
-	"github.com/yourname/fiberblog/internal/store"
+	"github.com/harshadptl/gcore/internal/models"
+	"github.com/harshadptl/gcore/internal/store"
 )
 
 // sessionTouchInterval limits how often a session's expiry is extended, so

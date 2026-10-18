@@ -5,8 +5,8 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/yourname/fiberblog/internal/models"
-	"github.com/yourname/fiberblog/internal/store"
+	"github.com/harshadptl/gcore/internal/models"
+	"github.com/harshadptl/gcore/internal/store"
 )
 
 // Flash is a one-time notification shown after a redirect.

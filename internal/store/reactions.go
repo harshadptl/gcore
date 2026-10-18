@@ -5,7 +5,7 @@ import (
 
 	"github.com/uptrace/bun"
 
-	"github.com/yourname/fiberblog/internal/models"
+	"github.com/harshadptl/gcore/internal/models"
 )
 
 // ToggleLike likes or unlikes a post and returns the new state and count.

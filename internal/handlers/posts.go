@@ -7,10 +7,10 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	"github.com/yourname/fiberblog/internal/models"
-	"github.com/yourname/fiberblog/internal/store"
-	"github.com/yourname/fiberblog/internal/textutil"
-	"github.com/yourname/fiberblog/internal/view"
+	"github.com/harshadptl/gcore/internal/models"
+	"github.com/harshadptl/gcore/internal/store"
+	"github.com/harshadptl/gcore/internal/textutil"
+	"github.com/harshadptl/gcore/internal/view"
 )
 
 const (

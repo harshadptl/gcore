@@ -3,7 +3,7 @@ package store
 import (
 	"context"
 
-	"github.com/yourname/fiberblog/internal/models"
+	"github.com/harshadptl/gcore/internal/models"
 )
 
 // SiteStats are headline numbers for the admin dashboard.

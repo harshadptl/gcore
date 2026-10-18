@@ -8,8 +8,8 @@ import (
 
 	"github.com/uptrace/bun"
 
-	"github.com/yourname/fiberblog/internal/models"
-	"github.com/yourname/fiberblog/internal/textutil"
+	"github.com/harshadptl/gcore/internal/models"
+	"github.com/harshadptl/gcore/internal/textutil"
 )
 
 // OAuthProfile is the identity returned by an OAuth provider.

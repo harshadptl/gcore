@@ -14,7 +14,7 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/endpoints"
 
-	"github.com/yourname/fiberblog/internal/store"
+	"github.com/harshadptl/gcore/internal/store"
 )
 
 const googleUserInfoURL = "https://openidconnect.googleapis.com/v1/userinfo"

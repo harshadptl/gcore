@@ -12,7 +12,7 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/yourname/fiberblog/internal/models"
+	"github.com/harshadptl/gcore/internal/models"
 )
 
 func PostPage(b Base, d PostData) templ.Component {

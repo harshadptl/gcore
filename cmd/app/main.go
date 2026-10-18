@@ -21,11 +21,11 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/uptrace/bun"
 
-	"github.com/yourname/fiberblog/internal/config"
-	"github.com/yourname/fiberblog/internal/database"
-	"github.com/yourname/fiberblog/internal/seed"
-	"github.com/yourname/fiberblog/internal/server"
-	"github.com/yourname/fiberblog/internal/store"
+	"github.com/harshadptl/gcore/internal/config"
+	"github.com/harshadptl/gcore/internal/database"
+	"github.com/harshadptl/gcore/internal/seed"
+	"github.com/harshadptl/gcore/internal/server"
+	"github.com/harshadptl/gcore/internal/store"
 )
 
 func main() {

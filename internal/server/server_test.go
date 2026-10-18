@@ -14,11 +14,11 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	"github.com/yourname/fiberblog/internal/config"
-	"github.com/yourname/fiberblog/internal/database"
-	"github.com/yourname/fiberblog/internal/seed"
-	"github.com/yourname/fiberblog/internal/server"
-	"github.com/yourname/fiberblog/internal/store"
+	"github.com/harshadptl/gcore/internal/config"
+	"github.com/harshadptl/gcore/internal/database"
+	"github.com/harshadptl/gcore/internal/seed"
+	"github.com/harshadptl/gcore/internal/server"
+	"github.com/harshadptl/gcore/internal/store"
 )
 
 // client is a tiny cookie-keeping wrapper around app.Test.
@@ -110,7 +110,7 @@ func TestPublicPages(t *testing.T) {
 		"/?q=templ":                         200,
 		"/tags":                             200,
 		"/tags/go":                          200,
-		"/posts/welcome-to-fiberblog":       200,
+		"/posts/welcome-to-gcore":           200,
 		"/posts/notes-for-an-upcoming-post": 404, // drafts are private
 		"/u/grace":                          200,
 		"/feed.xml":                         200,
@@ -173,7 +173,7 @@ func TestWriterFlow(t *testing.T) {
 	}
 
 	// Grace cannot edit Ada's post or open the admin area.
-	if resp, _ := c.do("GET", "/posts/welcome-to-fiberblog/edit", nil); resp.StatusCode != http.StatusForbidden {
+	if resp, _ := c.do("GET", "/posts/welcome-to-gcore/edit", nil); resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("edit other's post: %d", resp.StatusCode)
 	}
 	if resp, _ := c.do("GET", "/admin/", nil); resp.StatusCode != http.StatusForbidden {

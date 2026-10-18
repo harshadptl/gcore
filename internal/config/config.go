@@ -51,7 +51,7 @@ func Load() (*Config, error) {
 
 	cfg := &Config{
 		Env:      env("APP_ENV", "development"),
-		AppName:  env("APP_NAME", "Fiberblog"),
+		AppName:  env("APP_NAME", "gcore"),
 		BaseURL:  strings.TrimRight(env("BASE_URL", "http://localhost:3000"), "/"),
 		Addr:     env("ADDR", ":"+env("PORT", "3000")),
 		LogLevel: env("LOG_LEVEL", "info"),

@@ -8,7 +8,7 @@ package view
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import "github.com/yourname/fiberblog/internal/models"
+import "github.com/harshadptl/gcore/internal/models"
 
 func DashboardPage(b Base, d DashboardData) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {

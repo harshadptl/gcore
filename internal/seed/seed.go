@@ -5,10 +5,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/yourname/fiberblog/internal/markdown"
-	"github.com/yourname/fiberblog/internal/models"
-	"github.com/yourname/fiberblog/internal/store"
-	"github.com/yourname/fiberblog/internal/textutil"
+	"github.com/harshadptl/gcore/internal/markdown"
+	"github.com/harshadptl/gcore/internal/models"
+	"github.com/harshadptl/gcore/internal/store"
+	"github.com/harshadptl/gcore/internal/textutil"
 )
 
 type demoPost struct {
@@ -94,12 +94,12 @@ func Run(ctx context.Context, st *store.Store, adminEmail string) error {
 
 var demoPosts = []demoPost{
 	{
-		title: "Welcome to Fiberblog",
+		title: "Welcome to gcore",
 		cover: "/static/img/cover-welcome.svg",
 		tags:  []string{"Announcements", "Go"},
 		content: `Welcome! This post was created by ` + "`go run ./cmd/app seed`" + `.
 
-Fiberblog is a starter kit for content sites built with:
+gcore is a starter kit for content sites built with:
 
 - **[Fiber v3](https://gofiber.io)** for HTTP routing and middleware
 - **[Bun](https://bun.uptrace.dev)** as the SQL toolkit (PostgreSQL or SQLite)

@@ -11,7 +11,7 @@ import (
 	"github.com/yuin/goldmark/v2/parser"
 	ghtml "github.com/yuin/goldmark/v2/renderer/html"
 
-	"github.com/yourname/fiberblog/internal/textutil"
+	"github.com/harshadptl/gcore/internal/textutil"
 )
 
 // Renderer converts Markdown to safe HTML. It is safe for concurrent use.

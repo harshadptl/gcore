@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yourname/fiberblog/internal/models"
-	"github.com/yourname/fiberblog/web"
+	"github.com/harshadptl/gcore/internal/models"
+	"github.com/harshadptl/gcore/web"
 )
 
 // asset adds a content-hash query string for cache busting.

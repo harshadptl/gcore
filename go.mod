@@ -1,4 +1,4 @@
-module github.com/yourname/fiberblog
+module github.com/harshadptl/gcore
 
 go 1.26.0
 
