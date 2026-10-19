@@ -31,7 +31,8 @@ const contentSecurityPolicy = "default-src 'self'; " +
 	"img-src 'self' https: data:; " +
 	"style-src 'self' 'unsafe-inline'; " +
 	"script-src 'self'; " +
-	"connect-src 'self'; " +
+	"frame-src 'self' https://player.gvideo.co; " +
+	"connect-src 'self' https://whip.gvideo.co; " +
 	"form-action 'self'; " +
 	"frame-ancestors 'self'; " +
 	"base-uri 'self'; " +
@@ -111,6 +112,8 @@ func New(cfg *config.Config, st *store.Store, log *slog.Logger) *fiber.App {
 	app.Get("/tags", h.Tags)
 	app.Get("/tags/:slug", h.Tag)
 	app.Get("/u/:username", h.Profile)
+	app.Get("/live/:username", h.WatchLive)
+	app.Get("/live/:username/status", h.LiveStatus)
 	app.Get("/feed.xml", h.RSS)
 	app.Get("/sitemap.xml", h.Sitemap)
 

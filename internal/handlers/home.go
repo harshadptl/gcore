@@ -28,6 +28,14 @@ func (h *Handler) Home(c fiber.Ctx) error {
 		return err
 	}
 
+	var live []models.LiveStream
+	if query == "" && page.Number == 1 {
+		h.refreshLive(c)
+		if live, err = h.Store.ListLive(c); err != nil {
+			return err
+		}
+	}
+
 	title := ""
 	if query != "" {
 		title = "Search: " + query
@@ -42,6 +50,7 @@ func (h *Handler) Home(c fiber.Ctx) error {
 		Pager:       view.Pager{Page: page, Path: "/", Params: url.Values{"q": {query}}},
 		Query:       query,
 		PopularTags: tags,
+		Live:        live,
 	}))
 }
 

@@ -283,8 +283,9 @@ func (f *fakeGcore) serve(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case r.Method == http.MethodPost && r.URL.Path == "/streaming/streams":
 		f.nextID++
-		s := &gcore.Stream{ID: f.nextID, PushURL: fmt.Sprintf("rtmp://push.test/in/%d?tok", f.nextID),
-			PushURLSRT: "srt://push.test:5001", IframeURL: "https://iframe.test/x"}
+		s := &gcore.Stream{ID: f.nextID, PushURL: fmt.Sprintf("rtmp://push/in/%d?SECRETTOKEN", f.nextID),
+			PushURLWHIP: "https://whip.gvideo.co/9_SECRETTOKEN/whip",
+			PushURLSRT: "srt://push.test:5001", IframeURL: "https://player.gvideo.co/streams/9"}
 		f.streams[s.ID] = s
 		reply(s)
 	case r.Method == http.MethodGet && r.URL.Path == "/streaming/streams":
@@ -472,5 +473,128 @@ func TestStartStreamWithoutGcoreConfigured(t *testing.T) {
 	}
 	if resp, _ := c.do("GET", "/", nil); resp.StatusCode != 200 {
 		t.Fatalf("home: %d", resp.StatusCode)
+	}
+}
+
+// armedClient logs grace in, arms a stream and returns the owner client, an
+// anonymous client on the same app, and the Gcore stream id.
+func armedClient(t *testing.T, fake *fakeGcore, srvURL string) (owner, anon *client, csrf string, id int64) {
+	t.Helper()
+	owner = newApp(t, withGcore(srvURL))
+	csrf = owner.login("grace@example.com")
+	owner.do("POST", "/stream/start", url.Values{"_csrf": {csrf}, "title": {"Hello world"}})
+	ls, err := owner.st.LiveStreamByUser(context.Background(), owner.userID("grace"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	anon = &client{t: t, app: owner.app, st: owner.st, cookies: map[string]*http.Cookie{}}
+	return owner, anon, csrf, ls.GcoreStreamID
+}
+
+func TestWatchLive(t *testing.T) {
+	fake, srv := newFakeGcore(t)
+	c, anon, csrf, id := armedClient(t, fake, srv.URL)
+	fake.setLive(id, true)
+
+	resp, body := anon.do("GET", "/live/grace", nil)
+	if resp.StatusCode != 200 || !strings.Contains(body, "player.gvideo.co/streams/9") {
+		t.Fatalf("watch: %d", resp.StatusCode)
+	}
+	if strings.Contains(body, "SECRETTOKEN") || strings.Contains(body, "test-key") {
+		t.Fatal("secret leaked on watch page")
+	}
+	resp, body = anon.do("GET", "/live/grace/status", nil)
+	if resp.StatusCode != 200 || strings.TrimSpace(body) != `{"live":true}` || resp.Header.Get("Cache-Control") != "no-store" {
+		t.Fatalf("status: %d %q %q", resp.StatusCode, body, resp.Header.Get("Cache-Control"))
+	}
+	_, body = anon.do("GET", "/", nil)
+	if !strings.Contains(body, "Live now") || !strings.Contains(body, `href="/live/grace"`) {
+		t.Fatal("home strip missing")
+	}
+
+	c.do("POST", "/stream/stop", url.Values{"_csrf": {csrf}})
+	_, body = anon.do("GET", "/live/grace/status", nil)
+	if strings.TrimSpace(body) != `{"live":false}` {
+		t.Fatalf("status after stop: %q", body)
+	}
+	_, body = anon.do("GET", "/", nil)
+	if strings.Contains(body, "Live now") {
+		t.Fatal("home strip still shown after stop")
+	}
+}
+
+func TestWatchLiveNotStreaming(t *testing.T) {
+	c := newApp(t)
+	c.login("ada@example.com") // creates the user; no stream row
+	resp, body := c.do("GET", "/live/ada", nil)
+	if resp.StatusCode != 200 || !strings.Contains(body, "isn&#39;t live right now") && !strings.Contains(body, "isn't live right now") {
+		t.Fatalf("ada: %d", resp.StatusCode)
+	}
+	for _, p := range []string{"/live/nobody", "/live/nobody/status"} {
+		if resp, _ := c.do("GET", p, nil); resp.StatusCode != 404 {
+			t.Fatalf("%s: %d", p, resp.StatusCode)
+		}
+	}
+}
+
+func TestLiveSyncSurvivesGcoreOutage(t *testing.T) {
+	fake, srv := newFakeGcore(t)
+	_, anon, _, _ := armedClient(t, fake, srv.URL)
+	fake.mu.Lock()
+	fake.failList = true
+	fake.mu.Unlock()
+	for _, p := range []string{"/", "/live/grace", "/live/grace/status"} {
+		if resp, _ := anon.do("GET", p, nil); resp.StatusCode != 200 {
+			t.Fatalf("%s: %d", p, resp.StatusCode)
+		}
+	}
+}
+
+func TestLiveSyncStreamDeletedOnGcore(t *testing.T) {
+	fake, srv := newFakeGcore(t)
+	c, anon, _, id := armedClient(t, fake, srv.URL)
+	// Row says live; the cache is still invalidated from arming, so the next read syncs.
+	if _, err := c.st.DB.NewUpdate().Model((*models.LiveStream)(nil)).Set("live = ?", true).
+		Where("user_id = ?", c.userID("grace")).Exec(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	fake.mu.Lock()
+	delete(fake.streams, id)
+	fake.mu.Unlock()
+	_, body := anon.do("GET", "/live/grace/status", nil)
+	if strings.TrimSpace(body) != `{"live":false}` {
+		t.Fatalf("status: %q", body)
+	}
+	ls, _ := c.st.LiveStreamByUser(context.Background(), c.userID("grace"))
+	if ls.Active {
+		t.Fatal("row still active")
+	}
+}
+
+func TestAbandonedStreamAutoDisarms(t *testing.T) {
+	fake, srv := newFakeGcore(t)
+	c, anon, _, id := armedClient(t, fake, srv.URL)
+	_, err := c.st.DB.NewUpdate().Model((*models.LiveStream)(nil)).
+		Set("armed_at = ?", time.Now().Add(-11*time.Minute)).Where("user_id = ?", c.userID("grace")).Exec(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	anon.do("GET", "/live/grace", nil)
+	if n := fake.count(fmt.Sprintf("PATCH /streaming/streams/%d", id)); n != 2 {
+		t.Fatalf("PATCH calls = %d, want 2 (arm + auto-disarm)", n)
+	}
+	if ls, _ := c.st.LiveStreamByUser(context.Background(), c.userID("grace")); ls.Active {
+		t.Fatal("abandoned stream still active")
+	}
+}
+
+func TestCSPAllowsGcorePlayer(t *testing.T) {
+	c := newApp(t)
+	resp, _ := c.do("GET", "/", nil)
+	csp := resp.Header.Get("Content-Security-Policy")
+	for _, want := range []string{"frame-src 'self' https://player.gvideo.co", "connect-src 'self' https://whip.gvideo.co"} {
+		if !strings.Contains(csp, want) {
+			t.Fatalf("CSP missing %q: %s", want, csp)
+		}
 	}
 }

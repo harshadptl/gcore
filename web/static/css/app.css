@@ -328,3 +328,9 @@ section.danger-zone p { margin: 0; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }
+
+/* Livestreaming */
+.watch-player { display: block; width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: var(--radius-medium, 8px); background: #000; }
+.live-strip { margin-bottom: var(--space-8); }
+.live-grid { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); }
+.live-badge { background: #dc2626; color: #fff; margin-inline-start: auto; }

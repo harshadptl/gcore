@@ -92,6 +92,20 @@
     }
   });
 
+  // Watch page: flip to "ended" once the stream goes offline.
+  const watch = document.querySelector('[data-live-status]');
+  if (watch) {
+    const timer = setInterval(async () => {
+      try {
+        const res = await fetch(watch.dataset.liveStatus, { headers: { 'X-Requested-With': 'fetch' } });
+        if ((await res.json()).live) return;
+        watch.querySelector('iframe')?.remove();
+        watch.querySelector('[data-live-ended]').hidden = false;
+        clearInterval(timer);
+      } catch {} // network blip: keep watching
+    }, 10000);
+  }
+
   document.addEventListener('click', (e) => {
     if (e.target.closest('[data-history-back]')) history.back();
   });

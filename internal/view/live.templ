@@ -104,3 +104,42 @@ func liveVariant(state string) string {
 	}
 	return ""
 }
+
+templ WatchPage(b Base, d WatchData) {
+	@Layout(b) {
+		<div class="page-head hstack gap-3">
+			@Avatar(d.Streamer, "")
+			<div>
+				<h1>{ d.Streamer.Name }</h1>
+				if d.IsLive() && d.Stream.Title != "" {
+					<p class="text-light">{ d.Stream.Title }</p>
+				}
+			</div>
+		</div>
+		if d.IsLive() {
+			<div class="watch" data-live-status={ liveURL(d.Streamer) + "/status" }>
+				<iframe class="watch-player" src={ templ.URL(d.Stream.IframeURL) } allow="autoplay; fullscreen; picture-in-picture" allowfullscreen title={ d.Streamer.Name + " live stream" }></iframe>
+				<p data-live-ended hidden>This stream has ended.</p>
+			</div>
+		} else {
+			@EmptyState(d.Streamer.Name+" isn't live right now", "Check back later.") {
+				<a href={ userURL(d.Streamer) } class="button outline">View profile</a>
+			}
+		}
+	}
+}
+
+templ liveCard(ls *models.LiveStream) {
+	<a href={ templ.SafeURL(liveURL(ls.User)) } class="card live-card unstyled">
+		<div class="hstack gap-3">
+			@Avatar(ls.User, "")
+			<div>
+				<strong>{ ls.User.Name }</strong>
+				if ls.Title != "" {
+					<p class="text-light">{ ls.Title }</p>
+				}
+			</div>
+			<span class="badge live-badge">LIVE</span>
+		</div>
+	</a>
+}

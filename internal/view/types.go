@@ -86,7 +86,16 @@ type HomeData struct {
 	Pager       Pager
 	Query       string
 	PopularTags []models.Tag
+	Live        []models.LiveStream
 }
+
+// WatchData is the public watch page.
+type WatchData struct {
+	Streamer *models.User
+	Stream   *models.LiveStream
+}
+
+func (d WatchData) IsLive() bool { return d.Stream != nil && d.Stream.Live }
 
 // TagData lists posts for one tag.
 type TagData struct {

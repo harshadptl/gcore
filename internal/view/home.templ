@@ -23,6 +23,18 @@ templ HomePage(b Base, d HomeData) {
 				</div>
 			</section>
 		}
+		if len(d.Live) > 0 {
+			<section class="live-strip" aria-labelledby="live-heading">
+				<div class="section-head">
+					<h2 id="live-heading">Live now</h2>
+				</div>
+				<div class="live-grid">
+					for i := range d.Live {
+						@liveCard(&d.Live[i])
+					}
+				</div>
+			</section>
+		}
 		<div class="layout-with-aside">
 			<section aria-labelledby="posts-heading">
 				<div class="section-head">

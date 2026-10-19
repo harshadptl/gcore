@@ -175,3 +175,37 @@ func (h *Handler) StopStream(c fiber.Ctx) error {
 	}
 	return c.Redirect().With("success", "Stream stopped.").To(back)
 }
+
+// watchTarget resolves :username and syncs state; stream is nil when the
+// user has never armed one.
+func (h *Handler) watchTarget(c fiber.Ctx) (*models.User, *models.LiveStream, error) {
+	u, err := h.Store.UserByUsername(c, c.Params("username"))
+	if err != nil {
+		return nil, nil, orNotFound(err)
+	}
+	h.refreshLive(c)
+	ls, err := h.Store.LiveStreamByUser(c, u.ID)
+	if errors.Is(err, store.ErrNotFound) {
+		return u, nil, nil
+	}
+	return u, ls, err
+}
+
+func (h *Handler) WatchLive(c fiber.Ctx) error {
+	u, ls, err := h.watchTarget(c)
+	if err != nil {
+		return err
+	}
+	b := h.base(c, u.Name+" live")
+	b.NoIndex = true
+	return render(c, fiber.StatusOK, view.WatchPage(b, view.WatchData{Streamer: u, Stream: ls}))
+}
+
+func (h *Handler) LiveStatus(c fiber.Ctx) error {
+	_, ls, err := h.watchTarget(c)
+	if err != nil {
+		return err
+	}
+	c.Set(fiber.HeaderCacheControl, "no-store")
+	return c.JSON(fiber.Map{"live": ls != nil && ls.Live})
+}
