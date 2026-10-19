@@ -34,6 +34,9 @@ type Config struct {
 	GoogleClientSecret string
 	GoogleRedirectURL  string
 
+	GcoreAPIKey  string // Gcore Streaming API token; empty disables livestreaming
+	GcoreAPIBase string // no trailing slash
+
 	AdminEmails []string // these Google accounts become admins on login
 	DevLogin    bool     // enables password-less "dev login"; always off in production
 
@@ -66,6 +69,9 @@ func Load() (*Config, error) {
 		GoogleClientID:     env("GOOGLE_CLIENT_ID", ""),
 		GoogleClientSecret: env("GOOGLE_CLIENT_SECRET", ""),
 		GoogleRedirectURL:  env("GOOGLE_REDIRECT_URL", ""),
+
+		GcoreAPIKey:  env("GCORE_API_KEY", ""),
+		GcoreAPIBase: strings.TrimRight(env("GCORE_API_BASE", "https://api.gcore.com"), "/"),
 
 		AdminEmails: envList("ADMIN_EMAILS"),
 		DevLogin:    envBool("DEV_LOGIN", false),
@@ -102,6 +108,9 @@ func (c *Config) validate() error {
 		if !c.GoogleEnabled() {
 			errs = append(errs, errors.New("GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are required in production"))
 		}
+		if !c.GcoreEnabled() {
+			errs = append(errs, errors.New("GCORE_API_KEY is required in production"))
+		}
 	} else if c.SessionSecret == "" {
 		// Convenience for local development only.
 		c.SessionSecret = "dev-only-insecure-secret-change-me-please-0123456789"
@@ -121,6 +130,8 @@ func (c *Config) IsProduction() bool { return c.Env == "production" }
 func (c *Config) GoogleEnabled() bool {
 	return c.GoogleClientID != "" && c.GoogleClientSecret != ""
 }
+
+func (c *Config) GcoreEnabled() bool { return c.GcoreAPIKey != "" }
 
 // DevLoginEnabled reports whether the development login shortcut is usable.
 func (c *Config) DevLoginEnabled() bool { return c.DevLogin && !c.IsProduction() }

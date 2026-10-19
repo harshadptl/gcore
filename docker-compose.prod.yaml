@@ -38,6 +38,7 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:?set POSTGRES_USER in .env}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:?set POSTGRES_DB in .env}?sslmode=disable
       BASE_URL: ${BASE_URL:?set BASE_URL=https://your-domain in .env}
       SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env (openssl rand -base64 48)}
+      GCORE_API_KEY: ${GCORE_API_KEY:?set GCORE_API_KEY in .env}
       ADDR: ":3000"
       UPLOAD_DIR: /app/data/uploads
     ports:
