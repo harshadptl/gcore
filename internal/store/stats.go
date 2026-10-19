@@ -20,12 +20,12 @@ type SiteStats struct {
 func (s *Store) SiteStats(ctx context.Context) (SiteStats, error) {
 	var st SiteStats
 	err := s.DB.NewSelect().
-		ColumnExpr("(SELECT COUNT(*) FROM users) AS users").
-		ColumnExpr("(SELECT COUNT(*) FROM posts WHERE status = ?) AS published", models.StatusPublished).
-		ColumnExpr("(SELECT COUNT(*) FROM posts WHERE status = ?) AS drafts", models.StatusDraft).
-		ColumnExpr("(SELECT COUNT(*) FROM comments) AS comments").
-		ColumnExpr("(SELECT COUNT(*) FROM likes) AS likes").
-		ColumnExpr("(SELECT COALESCE(SUM(views), 0) FROM posts) AS total_views").
+		ColumnExpr("(SELECT COUNT(*) FROM gcore_users) AS users").
+		ColumnExpr("(SELECT COUNT(*) FROM gcore_posts WHERE status = ?) AS published", models.StatusPublished).
+		ColumnExpr("(SELECT COUNT(*) FROM gcore_posts WHERE status = ?) AS drafts", models.StatusDraft).
+		ColumnExpr("(SELECT COUNT(*) FROM gcore_comments) AS comments").
+		ColumnExpr("(SELECT COUNT(*) FROM gcore_likes) AS likes").
+		ColumnExpr("(SELECT COALESCE(SUM(views), 0) FROM gcore_posts) AS total_views").
 		Scan(ctx, &st.Users, &st.Published, &st.Drafts, &st.Comments, &st.Likes, &st.TotalViews)
 	return st, err
 }
@@ -43,11 +43,11 @@ type AuthorStats struct {
 func (s *Store) AuthorStats(ctx context.Context, authorID int64) (AuthorStats, error) {
 	var st AuthorStats
 	err := s.DB.NewSelect().
-		ColumnExpr("(SELECT COUNT(*) FROM posts WHERE author_id = ? AND status = ?)", authorID, models.StatusPublished).
-		ColumnExpr("(SELECT COUNT(*) FROM posts WHERE author_id = ? AND status = ?)", authorID, models.StatusDraft).
-		ColumnExpr("(SELECT COALESCE(SUM(views), 0) FROM posts WHERE author_id = ?)", authorID).
-		ColumnExpr("(SELECT COUNT(*) FROM likes JOIN posts ON posts.id = likes.post_id WHERE posts.author_id = ?)", authorID).
-		ColumnExpr("(SELECT COUNT(*) FROM comments JOIN posts ON posts.id = comments.post_id WHERE posts.author_id = ?)", authorID).
+		ColumnExpr("(SELECT COUNT(*) FROM gcore_posts WHERE author_id = ? AND status = ?)", authorID, models.StatusPublished).
+		ColumnExpr("(SELECT COUNT(*) FROM gcore_posts WHERE author_id = ? AND status = ?)", authorID, models.StatusDraft).
+		ColumnExpr("(SELECT COALESCE(SUM(views), 0) FROM gcore_posts WHERE author_id = ?)", authorID).
+		ColumnExpr("(SELECT COUNT(*) FROM gcore_likes JOIN gcore_posts posts ON posts.id = gcore_likes.post_id WHERE posts.author_id = ?)", authorID).
+		ColumnExpr("(SELECT COUNT(*) FROM gcore_comments JOIN gcore_posts posts ON posts.id = gcore_comments.post_id WHERE posts.author_id = ?)", authorID).
 		Scan(ctx, &st.Published, &st.Drafts, &st.Views, &st.Likes, &st.Comments)
 	return st, err
 }

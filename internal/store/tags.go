@@ -6,8 +6,8 @@ import (
 	"github.com/harshadptl/gcore/internal/models"
 )
 
-const publishedPostCountExpr = `(SELECT COUNT(*) FROM post_tags pt
-	JOIN posts ON posts.id = pt.post_id
+const publishedPostCountExpr = `(SELECT COUNT(*) FROM gcore_post_tags pt
+	JOIN gcore_posts posts ON posts.id = pt.post_id
 	WHERE pt.tag_id = t.id AND posts.status = 'published') AS post_count`
 
 // TagBySlug returns a single tag.
@@ -28,7 +28,7 @@ func (s *Store) PopularTags(ctx context.Context, limit int) ([]models.Tag, error
 	q := s.DB.NewSelect().Model(&tags).
 		ColumnExpr("t.*").
 		ColumnExpr(publishedPostCountExpr).
-		Where(`EXISTS (SELECT 1 FROM post_tags pt3 JOIN posts p3 ON p3.id = pt3.post_id
+		Where(`EXISTS (SELECT 1 FROM gcore_post_tags pt3 JOIN gcore_posts p3 ON p3.id = pt3.post_id
 			WHERE pt3.tag_id = t.id AND p3.status = 'published')`).
 		OrderExpr("post_count DESC, t.name ASC")
 	if limit > 0 {

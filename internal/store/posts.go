@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	likeCountExpr    = "(SELECT COUNT(*) FROM likes WHERE likes.post_id = p.id) AS like_count"
-	commentCountExpr = "(SELECT COUNT(*) FROM comments WHERE comments.post_id = p.id) AS comment_count"
+	likeCountExpr    = "(SELECT COUNT(*) FROM gcore_likes likes WHERE likes.post_id = p.id) AS like_count"
+	commentCountExpr = "(SELECT COUNT(*) FROM gcore_comments comments WHERE comments.post_id = p.id) AS comment_count"
 )
 
 // PostFilter narrows ListPosts.
@@ -48,11 +48,11 @@ func (s *Store) ListPosts(ctx context.Context, f PostFilter, page Page) ([]model
 		q = q.Where("p.id <> ?", f.ExcludeID)
 	}
 	if f.TagSlug != "" {
-		q = q.Where(`EXISTS (SELECT 1 FROM post_tags pt2 JOIN tags t2 ON t2.id = pt2.tag_id
+		q = q.Where(`EXISTS (SELECT 1 FROM gcore_post_tags pt2 JOIN gcore_tags t2 ON t2.id = pt2.tag_id
 			WHERE pt2.post_id = p.id AND t2.slug = ?)`, f.TagSlug)
 	}
 	if f.BookmarkedBy != 0 {
-		q = q.Where("EXISTS (SELECT 1 FROM bookmarks bm WHERE bm.post_id = p.id AND bm.user_id = ?)", f.BookmarkedBy)
+		q = q.Where("EXISTS (SELECT 1 FROM gcore_bookmarks bm WHERE bm.post_id = p.id AND bm.user_id = ?)", f.BookmarkedBy)
 	}
 	if term := strings.TrimSpace(f.Query); term != "" {
 		pattern := likePattern(term)
@@ -206,7 +206,7 @@ func setPostTags(ctx context.Context, tx bun.Tx, postID int64, names []string) e
 	}
 	// Garbage-collect tags no longer used by any post.
 	_, err := tx.NewDelete().Model((*models.Tag)(nil)).
-		Where("NOT EXISTS (SELECT 1 FROM post_tags WHERE post_tags.tag_id = t.id)").Exec(ctx)
+		Where("NOT EXISTS (SELECT 1 FROM gcore_post_tags WHERE gcore_post_tags.tag_id = t.id)").Exec(ctx)
 	return err
 }
 
@@ -217,7 +217,7 @@ func (s *Store) DeletePost(ctx context.Context, id int64) error {
 			return err
 		}
 		_, err := tx.NewDelete().Model((*models.Tag)(nil)).
-			Where("NOT EXISTS (SELECT 1 FROM post_tags WHERE post_tags.tag_id = t.id)").Exec(ctx)
+			Where("NOT EXISTS (SELECT 1 FROM gcore_post_tags WHERE gcore_post_tags.tag_id = t.id)").Exec(ctx)
 		return err
 	})
 }

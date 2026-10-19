@@ -169,7 +169,7 @@ func (s *Store) ListUsers(ctx context.Context, page Page) ([]models.User, Page, 
 	var users []models.User
 	total, err := s.DB.NewSelect().Model(&users).
 		ColumnExpr("u.*").
-		ColumnExpr("(SELECT COUNT(*) FROM posts WHERE posts.author_id = u.id) AS post_count").
+		ColumnExpr("(SELECT COUNT(*) FROM gcore_posts posts WHERE posts.author_id = u.id) AS post_count").
 		Order("u.created_at DESC").
 		Limit(page.Limit()).Offset(page.Offset()).
 		ScanAndCount(ctx)

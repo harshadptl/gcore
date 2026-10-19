@@ -46,7 +46,7 @@ func (t *timestamps) touch(query bun.Query) {
 
 // User is a person who signed in with Google.
 type User struct {
-	bun.BaseModel `bun:"table:users,alias:u"`
+	bun.BaseModel `bun:"table:gcore_users,alias:u"`
 
 	ID          int64     `bun:",pk,autoincrement"`
 	GoogleID    string    `bun:",unique,notnull"`
@@ -102,7 +102,7 @@ func (u *User) Initials() string {
 
 // Post is a blog article written in Markdown.
 type Post struct {
-	bun.BaseModel `bun:"table:posts,alias:p"`
+	bun.BaseModel `bun:"table:gcore_posts,alias:p"`
 
 	ID             int64     `bun:",pk,autoincrement"`
 	AuthorID       int64     `bun:",notnull"`
@@ -119,7 +119,7 @@ type Post struct {
 	PublishedAt    time.Time `bun:",nullzero"`
 	timestamps
 
-	Tags []Tag `bun:"m2m:post_tags,join:Post=Tag"`
+	Tags []Tag `bun:"m2m:gcore_post_tags,join:Post=Tag"`
 
 	// Aggregates filled by list/detail queries.
 	LikeCount    int `bun:"like_count,scanonly"`
@@ -156,7 +156,7 @@ func (p *Post) TagNames() []string {
 
 // Tag groups posts by topic.
 type Tag struct {
-	bun.BaseModel `bun:"table:tags,alias:t"`
+	bun.BaseModel `bun:"table:gcore_tags,alias:t"`
 
 	ID        int64     `bun:",pk,autoincrement"`
 	Name      string    `bun:",notnull"`
@@ -168,7 +168,7 @@ type Tag struct {
 
 // PostTag is the join table for the posts <-> tags many-to-many relation.
 type PostTag struct {
-	bun.BaseModel `bun:"table:post_tags,alias:pt"`
+	bun.BaseModel `bun:"table:gcore_post_tags,alias:pt"`
 
 	PostID int64 `bun:",pk"`
 	Post   *Post `bun:"rel:belongs-to,join:post_id=id"`
@@ -178,7 +178,7 @@ type PostTag struct {
 
 // Comment is a reader's reply on a post.
 type Comment struct {
-	bun.BaseModel `bun:"table:comments,alias:c"`
+	bun.BaseModel `bun:"table:gcore_comments,alias:c"`
 
 	ID       int64  `bun:",pk,autoincrement"`
 	PostID   int64  `bun:",notnull"`
@@ -199,7 +199,7 @@ func (c *Comment) BeforeAppendModel(_ context.Context, q bun.Query) error {
 
 // Like records that a user liked a post.
 type Like struct {
-	bun.BaseModel `bun:"table:likes,alias:l"`
+	bun.BaseModel `bun:"table:gcore_likes,alias:l"`
 
 	UserID    int64     `bun:",pk"`
 	PostID    int64     `bun:",pk"`
@@ -208,7 +208,7 @@ type Like struct {
 
 // Bookmark records that a user saved a post to read later.
 type Bookmark struct {
-	bun.BaseModel `bun:"table:bookmarks,alias:b"`
+	bun.BaseModel `bun:"table:gcore_bookmarks,alias:b"`
 
 	UserID    int64     `bun:",pk"`
 	PostID    int64     `bun:",pk"`
@@ -219,7 +219,7 @@ type Bookmark struct {
 // token stored in the user's cookie, so a database leak does not leak
 // usable session tokens.
 type Session struct {
-	bun.BaseModel `bun:"table:sessions,alias:s"`
+	bun.BaseModel `bun:"table:gcore_sessions,alias:s"`
 
 	ID         string    `bun:",pk"`
 	UserID     int64     `bun:",notnull"`
@@ -244,7 +244,7 @@ const (
 )
 
 type LiveStream struct {
-	bun.BaseModel `bun:"table:live_streams,alias:ls"`
+	bun.BaseModel `bun:"table:gcore_live_streams,alias:ls"`
 
 	UserID        int64     `bun:",pk"`
 	User          *User     `bun:"rel:belongs-to,join:user_id=id"`
