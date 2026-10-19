@@ -598,3 +598,24 @@ func TestCSPAllowsGcorePlayer(t *testing.T) {
 		}
 	}
 }
+
+func TestWhipPanelOnlyWhenArmed(t *testing.T) {
+	_, srv := newFakeGcore(t)
+	c := newApp(t, withGcore(srv.URL))
+	csrf := c.login("grace@example.com")
+
+	_, body := c.do("GET", "/dashboard/live", nil)
+	if strings.Contains(body, "data-whip") {
+		t.Fatal("whip panel shown before the stream is armed")
+	}
+	c.do("POST", "/stream/start", url.Values{"_csrf": {csrf}, "title": {"t"}})
+	_, body = c.do("GET", "/dashboard/live", nil)
+	if !strings.Contains(body, `data-whip-url="https://whip.gvideo.co/`) || !strings.Contains(body, "whip-broadcast.js") {
+		t.Fatal("whip panel missing after start")
+	}
+
+	anon := &client{t: t, app: c.app, st: c.st, cookies: map[string]*http.Cookie{}}
+	if resp, _ := anon.do("GET", "/static/js/whip-broadcast.js", nil); resp.StatusCode != 200 {
+		t.Fatalf("script: %d", resp.StatusCode)
+	}
+}

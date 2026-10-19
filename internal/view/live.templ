@@ -47,6 +47,24 @@ templ LiveDashboardPage(b Base, d LiveDashboardData) {
 					</form>
 				}
 			</article>
+			if d.Stream != nil && d.Stream.Active && d.Stream.PushURLWHIP != "" {
+				<article class="card mt-4">
+					<section data-whip data-whip-url={ d.Stream.PushURLWHIP } class="stack">
+						<h3>Broadcast from your browser</h3>
+						<div class="hstack gap-3">
+							<label><input type="radio" name="whip-source" value="camera" checked/> Camera</label>
+							<label><input type="radio" name="whip-source" value="screen"/> Screen</label>
+						</div>
+						<video data-whip-preview muted playsinline autoplay class="watch-player"></video>
+						<div class="hstack gap-2">
+							<button type="button" class="button" data-variant="primary" data-whip-start>Go live</button>
+							<button type="button" class="button outline" data-whip-stop disabled>Stop</button>
+						</div>
+						<p class="text-light" data-whip-status aria-live="polite"></p>
+					</section>
+					<script src={ asset("/static/js/whip-broadcast.js") } defer></script>
+				</article>
+			}
 			if d.Stream != nil {
 				@obsCard(d.Stream)
 				if b.User != nil {
