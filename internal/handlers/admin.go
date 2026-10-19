@@ -22,14 +22,37 @@ func (h *Handler) Admin(c fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+	// Read from the DB cache only; the admin page never waits on Gcore.
+	live, err := h.Store.ListLive(c)
+	if err != nil {
+		return err
+	}
 	b := h.base(c, "Admin")
 	b.NoIndex = true
 	return render(c, fiber.StatusOK, view.AdminPage(b, view.AdminData{
+		Live:     live,
 		Stats:    stats,
 		Users:    users,
 		Pager:    view.Pager{Page: page, Path: "/admin"},
 		Comments: comments,
 	}))
+}
+
+// TerminateStream force-stops a user's stream.
+func (h *Handler) TerminateStream(c fiber.Ctx) error {
+	id := fiber.Params[int64](c, "user_id")
+	ls, err := h.Store.LiveStreamByUser(c, id)
+	if err != nil {
+		return orNotFound(err)
+	}
+	if err := h.stopStream(c, ls); err != nil {
+		return c.Redirect().With("error", err.Error()).To("/admin")
+	}
+	target, err := h.Store.UserByID(c, id)
+	if err != nil {
+		return orNotFound(err)
+	}
+	return c.Redirect().With("success", "Stream stopped for "+target.Name+".").To("/admin")
 }
 
 // SetUserRole promotes or demotes a user.

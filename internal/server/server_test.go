@@ -619,3 +619,54 @@ func TestWhipPanelOnlyWhenArmed(t *testing.T) {
 		t.Fatalf("script: %d", resp.StatusCode)
 	}
 }
+
+func TestAdminTerminatesStream(t *testing.T) {
+	ctx := context.Background()
+	fake, srv := newFakeGcore(t)
+	grace, anon, _, id := armedClient(t, fake, srv.URL)
+	fake.setLive(id, true)
+	anon.do("GET", "/live/grace", nil) // triggers the sync that writes live=true
+	gid := grace.userID("grace")
+	if ls, _ := grace.st.LiveStreamByUser(ctx, gid); ls == nil || !ls.Live {
+		t.Fatal("row not live after sync")
+	}
+
+	admin := &client{t: t, app: grace.app, st: grace.st, cookies: map[string]*http.Cookie{}}
+	csrf := admin.login("admin@example.com")
+	_, body := admin.do("GET", "/admin/", nil)
+	if !strings.Contains(body, "Live now") || !strings.Contains(body, "grace") {
+		t.Fatal("admin page missing live table")
+	}
+	resp, _ := admin.do("POST", "/admin/live-streams/"+strconv.FormatInt(gid, 10)+"/terminate", url.Values{"_csrf": {csrf}})
+	if resp.StatusCode != http.StatusSeeOther || resp.Header.Get("Location") != "/admin" {
+		t.Fatalf("terminate: %d %s", resp.StatusCode, resp.Header.Get("Location"))
+	}
+	fake.mu.Lock()
+	active := fake.streams[id].Active
+	fake.mu.Unlock()
+	if active {
+		t.Fatal("gcore stream still armed")
+	}
+	if ls, _ := grace.st.LiveStreamByUser(ctx, gid); ls.Active || ls.Live {
+		t.Fatalf("row still live/active: %+v", ls)
+	}
+}
+
+func TestTerminateRequiresAdmin(t *testing.T) {
+	fake, srv := newFakeGcore(t)
+	grace, _, csrf, _ := armedClient(t, fake, srv.URL)
+	// Any target id: RequireAdmin must reject before the handler runs.
+	resp, _ := grace.do("POST", "/admin/live-streams/1/terminate", url.Values{"_csrf": {csrf}})
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("status %d, want 403", resp.StatusCode)
+	}
+}
+
+func TestTerminateUnknown(t *testing.T) {
+	c := newApp(t)
+	csrf := c.login("admin@example.com")
+	resp, _ := c.do("POST", "/admin/live-streams/"+strconv.FormatInt(c.userID("grace"), 10)+"/terminate", url.Values{"_csrf": {csrf}})
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("status %d, want 404", resp.StatusCode)
+	}
+}

@@ -153,6 +153,7 @@ func New(cfg *config.Config, st *store.Store, log *slog.Logger) *fiber.App {
 	admin := app.Group("/admin", requireUser, h.RequireAdmin, handlers.NoStore)
 	admin.Get("/", h.Admin)
 	admin.Post("/users/:id<int>/role", h.SetUserRole)
+	admin.Post("/live-streams/:user_id<int>/terminate", h.TerminateStream)
 
 	// Anything else is a 404 rendered by the error handler.
 	app.Use(func(c fiber.Ctx) error { return fiber.ErrNotFound })

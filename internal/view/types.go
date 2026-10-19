@@ -181,6 +181,7 @@ type LoginData struct {
 // AdminData is the admin overview.
 type AdminData struct {
 	Stats    store.SiteStats
+	Live     []models.LiveStream
 	Users    []models.User
 	Pager    Pager
 	Comments []models.Comment

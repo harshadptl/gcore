@@ -16,6 +16,30 @@ templ AdminPage(b Base, d AdminData) {
 			@statCard("Likes", itoa(d.Stats.Likes))
 			@statCard("Views", compact(d.Stats.TotalViews))
 		</div>
+		<section class="mt-8" aria-labelledby="live-heading">
+			<h2 id="live-heading">Live now</h2>
+			if len(d.Live) == 0 {
+				<p class="text-light">Nobody is live.</p>
+			} else {
+				<div class="table">
+					<table>
+						<thead>
+							<tr>
+								<th>User</th>
+								<th>Title</th>
+								<th>Started</th>
+								<th><span class="sr-only">Actions</span></th>
+							</tr>
+						</thead>
+						<tbody>
+							for i := range d.Live {
+								@adminLiveRow(b, &d.Live[i])
+							}
+						</tbody>
+					</table>
+				</div>
+			}
+		</section>
 		<section class="mt-8" aria-labelledby="users-heading">
 			<h2 id="users-heading">Users</h2>
 			<div class="table">
@@ -76,6 +100,25 @@ templ AdminPage(b Base, d AdminData) {
 			}
 		</section>
 	}
+}
+
+templ adminLiveRow(b Base, ls *models.LiveStream) {
+	<tr>
+		<td>
+			<a href={ userURL(ls.User) } class="unstyled hstack gap-2">
+				@Avatar(ls.User, "small")
+				<span>{ ls.User.Name }</span>
+			</a>
+		</td>
+		<td>{ ls.Title }</td>
+		<td><time datetime={ isoDate(ls.StartedAt) }>{ timeAgo(ls.StartedAt) }</time></td>
+		<td>
+			<form method="post" action={ templ.SafeURL("/admin/live-streams/" + itoa(ls.UserID) + "/terminate") } class="inline-form" data-confirm="Stop this stream?">
+				@CSRFField(b.CSRF)
+				<button type="submit" class="outline small" data-variant="danger">Stop</button>
+			</form>
+		</td>
+	</tr>
 }
 
 templ adminUserRow(b Base, u *models.User) {
