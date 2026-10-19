@@ -634,8 +634,9 @@ func TestAdminTerminatesStream(t *testing.T) {
 	admin := &client{t: t, app: grace.app, st: grace.st, cookies: map[string]*http.Cookie{}}
 	csrf := admin.login("admin@example.com")
 	_, body := admin.do("GET", "/admin/", nil)
-	if !strings.Contains(body, "Live now") || !strings.Contains(body, "grace") {
-		t.Fatal("admin page missing live table")
+	// Only a rendered live row emits its terminate form; the heading and the Users table are always there.
+	if !strings.Contains(body, "/admin/live-streams/"+strconv.FormatInt(gid, 10)+"/terminate") || !strings.Contains(body, "Stop this stream?") {
+		t.Fatal("admin page missing live row")
 	}
 	resp, _ := admin.do("POST", "/admin/live-streams/"+strconv.FormatInt(gid, 10)+"/terminate", url.Values{"_csrf": {csrf}})
 	if resp.StatusCode != http.StatusSeeOther || resp.Header.Get("Location") != "/admin" {
@@ -654,18 +655,38 @@ func TestAdminTerminatesStream(t *testing.T) {
 
 func TestTerminateRequiresAdmin(t *testing.T) {
 	fake, srv := newFakeGcore(t)
-	grace, _, csrf, _ := armedClient(t, fake, srv.URL)
-	// Any target id: RequireAdmin must reject before the handler runs.
-	resp, _ := grace.do("POST", "/admin/live-streams/1/terminate", url.Values{"_csrf": {csrf}})
+	grace, _, csrf, id := armedClient(t, fake, srv.URL)
+	gid := grace.userID("grace")
+	// A non-admin must not be able to stop a real armed stream through the route.
+	resp, _ := grace.do("POST", "/admin/live-streams/"+strconv.FormatInt(gid, 10)+"/terminate", url.Values{"_csrf": {csrf}})
 	if resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("status %d, want 403", resp.StatusCode)
+	}
+	fake.mu.Lock()
+	active := fake.streams[id].Active
+	fake.mu.Unlock()
+	if !active {
+		t.Fatal("gcore stream disarmed by non-admin")
+	}
+	if ls, _ := grace.st.LiveStreamByUser(context.Background(), gid); !ls.Active {
+		t.Fatal("row disarmed by non-admin")
 	}
 }
 
 func TestTerminateUnknown(t *testing.T) {
-	c := newApp(t)
-	csrf := c.login("admin@example.com")
-	resp, _ := c.do("POST", "/admin/live-streams/"+strconv.FormatInt(c.userID("grace"), 10)+"/terminate", url.Values{"_csrf": {csrf}})
+	fake, srv := newFakeGcore(t)
+	grace, _, _, _ := armedClient(t, fake, srv.URL)
+	admin := &client{t: t, app: grace.app, st: grace.st, cookies: map[string]*http.Cookie{}}
+	csrf := admin.login("admin@example.com")
+	// A missing route and a missing stream both give the same 404, so first prove
+	// the route is live: a user with a stream gets stopped (303)...
+	gid := strconv.FormatInt(grace.userID("grace"), 10)
+	if resp, _ := admin.do("POST", "/admin/live-streams/"+gid+"/terminate", url.Values{"_csrf": {csrf}}); resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("route not wired: %d", resp.StatusCode)
+	}
+	// ...then a real user with no stream row (admin) gets the handler's 404.
+	// Seeded admin is user 1.
+	resp, _ := admin.do("POST", "/admin/live-streams/1/terminate", url.Values{"_csrf": {csrf}})
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("status %d, want 404", resp.StatusCode)
 	}
