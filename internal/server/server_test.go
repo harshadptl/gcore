@@ -243,6 +243,7 @@ func TestGoogleOAuthStart(t *testing.T) {
 		t.Fatalf("forged state: %d %s", resp.StatusCode, resp.Header.Get("Location"))
 	}
 }
+
 type fakeGcore struct {
 	mu         sync.Mutex
 	streams    map[int64]*gcore.Stream
@@ -252,6 +253,7 @@ type fakeGcore struct {
 	failDelete bool
 	patchErr   string // non-empty => PATCH replies 403 with this body
 	onCreate   func()
+	listDelay  time.Duration // GET /streaming/streams sleeps this long (a slow Gcore)
 }
 
 func newFakeGcore(t *testing.T) (*fakeGcore, *httptest.Server) {
@@ -268,10 +270,13 @@ func (f *fakeGcore) serve(w http.ResponseWriter, r *http.Request) {
 	}
 	f.mu.Lock()
 	f.calls = append(f.calls, r.Method+" "+r.URL.Path)
-	onCreate := f.onCreate
+	onCreate, listDelay := f.onCreate, f.listDelay
 	f.mu.Unlock()
 	if r.Method == http.MethodPost && onCreate != nil {
 		onCreate() // outside the lock: it may call back into the app
+	}
+	if r.Method == http.MethodGet {
+		time.Sleep(listDelay)
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -285,7 +290,7 @@ func (f *fakeGcore) serve(w http.ResponseWriter, r *http.Request) {
 		f.nextID++
 		s := &gcore.Stream{ID: f.nextID, PushURL: fmt.Sprintf("rtmp://push/in/%d?SECRETTOKEN", f.nextID),
 			PushURLWHIP: "https://whip.gvideo.co/9_SECRETTOKEN/whip",
-			PushURLSRT: "srt://push.test:5001", IframeURL: "https://player.gvideo.co/streams/9"}
+			PushURLSRT:  "srt://push.test:5001", IframeURL: "https://player.gvideo.co/streams/9"}
 		f.streams[s.ID] = s
 		reply(s)
 	case r.Method == http.MethodGet && r.URL.Path == "/streaming/streams":
@@ -447,7 +452,11 @@ func TestStartStreamCreateRace(t *testing.T) {
 	csrf := c.login("grace@example.com")
 	uid := c.userID("grace")
 	fake.onCreate = func() {
+		// The winner's row and its real Gcore stream 7, so Start arms 7 rather than recreating.
 		_, _ = c.st.CreateLiveStream(context.Background(), &models.LiveStream{UserID: uid, GcoreStreamID: 7, PushURL: "rtmp://w/in/7?t"})
+		fake.mu.Lock()
+		fake.streams[7] = &gcore.Stream{ID: 7}
+		fake.mu.Unlock()
 	}
 
 	resp, _ := c.do("POST", "/stream/start", url.Values{"_csrf": {csrf}, "title": {"t"}})
@@ -458,8 +467,67 @@ func TestStartStreamCreateRace(t *testing.T) {
 		t.Fatalf("loser stream not deleted: %v", fake.calls)
 	}
 	ls, err := c.st.LiveStreamByUser(context.Background(), uid)
-	if err != nil || ls.GcoreStreamID != 7 {
+	if err != nil || ls.GcoreStreamID != 7 || !ls.Active {
 		t.Fatalf("row = %+v %v", ls, err)
+	}
+}
+
+// A Gcore error other than "row already exists" must not orphan the stream we just created.
+func TestStartStreamCreateFailureDeletesGcoreStream(t *testing.T) {
+	fake, srv := newFakeGcore(t)
+	c := newApp(t, withGcore(srv.URL))
+	csrf := c.login("grace@example.com")
+	fake.onCreate = func() {
+		_, _ = c.st.DB.NewDropTable().Model((*models.LiveStream)(nil)).Exec(context.Background())
+	}
+	c.do("POST", "/stream/start", url.Values{"_csrf": {csrf}, "title": {"t"}})
+	if n := fake.count("DELETE /streaming/streams/101"); n != 1 {
+		t.Fatalf("orphaned gcore stream not deleted: %v", fake.calls)
+	}
+}
+
+// A stream deleted on Gcore's side must not lock the user out: Start recreates it.
+func TestStartStreamRecreatesDeletedGcoreStream(t *testing.T) {
+	fake, srv := newFakeGcore(t)
+	c, _, csrf, id := armedClient(t, fake, srv.URL)
+	fake.mu.Lock()
+	delete(fake.streams, id)
+	fake.mu.Unlock()
+
+	resp, _ := c.do("POST", "/stream/start", url.Values{"_csrf": {csrf}, "title": {"again"}})
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("start: %d", resp.StatusCode)
+	}
+	if n := fake.count("POST /streaming/streams"); n != 2 {
+		t.Fatalf("create calls = %d, want 2 (recreate)", n)
+	}
+	ls, err := c.st.LiveStreamByUser(context.Background(), c.userID("grace"))
+	if err != nil || ls.GcoreStreamID == id || !ls.Active {
+		t.Fatalf("row = %+v %v", ls, err)
+	}
+	fake.mu.Lock()
+	s := fake.streams[ls.GcoreStreamID]
+	fake.mu.Unlock()
+	if s == nil || !s.Active || ls.PushURL != s.PushURL {
+		t.Fatalf("row not pointed at the new, armed gcore stream: %+v", s)
+	}
+}
+
+// Stop on a stream Gcore already deleted cleans up the row instead of erroring.
+func TestStopStreamDeletedOnGcore(t *testing.T) {
+	fake, srv := newFakeGcore(t)
+	c, _, csrf, id := armedClient(t, fake, srv.URL)
+	fake.mu.Lock()
+	delete(fake.streams, id)
+	fake.mu.Unlock()
+
+	c.do("POST", "/stream/stop", url.Values{"_csrf": {csrf}})
+	_, body := c.do("GET", "/dashboard/live", nil)
+	if !strings.Contains(body, "Stream stopped.") {
+		t.Fatal("missing success flash")
+	}
+	if ls, _ := c.st.LiveStreamByUser(context.Background(), c.userID("grace")); ls.Active {
+		t.Fatal("row still active")
 	}
 }
 
@@ -568,6 +636,37 @@ func TestLiveSyncStreamDeletedOnGcore(t *testing.T) {
 	ls, _ := c.st.LiveStreamByUser(context.Background(), c.userID("grace"))
 	if ls.Active {
 		t.Fatal("row still active")
+	}
+}
+
+// A slow Gcore must not queue readers: one sync runs, everyone else serves cached DB state.
+func TestLiveSyncDoesNotQueueBehindSlowGcore(t *testing.T) {
+	const delay = 300 * time.Millisecond
+	fake, srv := newFakeGcore(t)
+	c, _, _, _ := armedClient(t, fake, srv.URL) // arming invalidated the cache
+	fake.mu.Lock()
+	fake.listDelay = delay
+	fake.mu.Unlock()
+	get := func() {
+		resp, err := c.app.Test(httptest.NewRequest("GET", "/live/grace/status", nil), fiber.TestConfig{Timeout: 5 * time.Second})
+		if err == nil {
+			resp.Body.Close()
+		}
+	}
+
+	done := make(chan struct{})
+	go func() { get(); close(done) }()
+	for fake.count("GET /streaming/streams") == 0 {
+		time.Sleep(5 * time.Millisecond)
+	}
+	start := time.Now()
+	get()
+	if d := time.Since(start); d > delay/2 {
+		t.Fatalf("second request waited %v behind the in-flight sync", d)
+	}
+	<-done
+	if n := fake.count("GET /streaming/streams"); n != 1 {
+		t.Fatalf("GET /streaming/streams = %d, want 1", n)
 	}
 }
 

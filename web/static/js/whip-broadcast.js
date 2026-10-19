@@ -9,6 +9,8 @@
   const startBtn = root.querySelector('[data-whip-start]');
   const stopBtn = root.querySelector('[data-whip-stop]');
   const statusEl = root.querySelector('[data-whip-status]');
+  // Submitting the title form navigates away and would drop the broadcast.
+  const titleBtn = document.querySelector('form[action="/stream/start"] button[type="submit"]');
 
   let pc = null;
   let stream = null;
@@ -19,6 +21,7 @@
   const setBusy = (live) => {
     startBtn.disabled = live;
     stopBtn.disabled = !live;
+    if (titleBtn) titleBtn.disabled = live;
     root.querySelectorAll('input[name="whip-source"]').forEach((r) => { r.disabled = live; });
   };
 

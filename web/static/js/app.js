@@ -98,7 +98,8 @@
     const timer = setInterval(async () => {
       try {
         const res = await fetch(watch.dataset.liveStatus, { headers: { 'X-Requested-With': 'fetch' } });
-        if ((await res.json()).live) return;
+        if (!res.ok) return; // server hiccup: keep watching; only an explicit live:false ends it
+        if ((await res.json()).live !== false) return;
         watch.querySelector('iframe')?.remove();
         watch.querySelector('[data-live-ended]').hidden = false;
         clearInterval(timer);

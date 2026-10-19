@@ -27,6 +27,15 @@ func (s *Store) CreateLiveStream(ctx context.Context, ls *models.LiveStream) (cr
 	return n == 1, err
 }
 
+// ReplaceLiveStreamGcore points a user's row at a new Gcore stream (ls.UserID
+// selects the row; its Gcore id and URLs are written).
+func (s *Store) ReplaceLiveStreamGcore(ctx context.Context, ls *models.LiveStream) error {
+	_, err := s.DB.NewUpdate().Model(ls).
+		Column("gcore_stream_id", "push_url", "push_url_srt", "push_url_whip", "iframe_url").
+		WherePK().Exec(ctx)
+	return err
+}
+
 // ArmLiveStream marks the stream as wanted-on.
 func (s *Store) ArmLiveStream(ctx context.Context, userID int64, title string, now time.Time) error {
 	_, err := s.DB.NewUpdate().Model((*models.LiveStream)(nil)).

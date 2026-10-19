@@ -31,7 +31,11 @@ type liveSync struct {
 // refreshLive reconciles active/live streams with Gcore. It never fails the
 // caller: on any error it logs and leaves the cached DB state in place.
 func (h *Handler) refreshLive(ctx context.Context) {
-	h.live.mu.Lock() // held across List on purpose: at most one List per TTL
+	// Held across List on purpose: at most one List per TTL. A request that finds
+	// a sync in flight serves the cached DB state instead of queueing behind Gcore.
+	if !h.live.mu.TryLock() {
+		return
+	}
 	defer h.live.mu.Unlock()
 	// ponytail: single-instance in-memory cache + mutex; if this ever runs
 	// as >1 process, move the TTL check to the DB (e.g. synced_at column,
@@ -50,6 +54,7 @@ func (h *Handler) refreshLive(ctx context.Context) {
 		return // nobody is streaming: no Gcore call
 	}
 	list, err := h.Gcore.List(ctx)
+	h.live.last = time.Now() // TTL runs from the reply, so a slow or failed List isn't retried at once
 	if err != nil {
 		h.Log.Warn("gcore list failed", "err", err)
 		return
@@ -83,9 +88,10 @@ func (h *Handler) invalidateLive() {
 }
 
 // stopStream disarms on Gcore first; the DB is untouched if Gcore fails so
-// the UI never claims "stopped" while Gcore is still armed.
+// the UI never claims "stopped" while Gcore is still armed. A 404 means Gcore
+// already deleted the stream, so there is nothing left to disarm.
 func (h *Handler) stopStream(ctx context.Context, ls *models.LiveStream) error {
-	if _, err := h.Gcore.SetActive(ctx, ls.GcoreStreamID, false); err != nil {
+	if _, err := h.Gcore.SetActive(ctx, ls.GcoreStreamID, false); err != nil && !isGcoreNotFound(err) {
 		return err
 	}
 	if err := h.Store.DisarmLiveStream(ctx, ls.UserID, time.Now()); err != nil {
@@ -126,7 +132,7 @@ func (h *Handler) StartStream(c fiber.Ctx) error {
 	ls, err := h.Store.LiveStreamByUser(c, u.ID)
 	if errors.Is(err, store.ErrNotFound) {
 		var s gcore.Stream
-		s, err = h.Gcore.Create(c, fmt.Sprintf("%s-%s-%d", h.Cfg.AppName, u.Username, u.ID))
+		s, err = h.Gcore.Create(c, h.streamName(u))
 		if err != nil {
 			return c.Redirect().With("error", err.Error()).To(back)
 		}
@@ -135,8 +141,9 @@ func (h *Handler) StartStream(c fiber.Ctx) error {
 			UserID: u.ID, GcoreStreamID: s.ID, Title: title,
 			PushURL: s.PushURL, PushURLSRT: s.PushURLSRT, PushURLWHIP: s.PushURLWHIP, IframeURL: s.IframeURL,
 		})
-		if err == nil && !created {
-			// Lost a race with another tab: drop our stream, use the winner's.
+		if err != nil || !created {
+			// Lost a race with another tab (use the winner's), or the insert failed:
+			// either way our stream has no row, so drop it rather than orphan it.
 			if derr := h.Gcore.Delete(c, s.ID); derr != nil {
 				h.Log.Error("gcore delete of duplicate stream failed", "stream", s.ID, "err", derr)
 			}
@@ -150,7 +157,13 @@ func (h *Handler) StartStream(c fiber.Ctx) error {
 		return err
 	}
 
-	if _, err := h.Gcore.SetActive(c, ls.GcoreStreamID, true); err != nil {
+	_, err = h.Gcore.SetActive(c, ls.GcoreStreamID, true)
+	if isGcoreNotFound(err) { // deleted on Gcore's side: recreate it, then retry once
+		if err = h.recreateStream(c, u, ls); err == nil {
+			_, err = h.Gcore.SetActive(c, ls.GcoreStreamID, true)
+		}
+	}
+	if err != nil {
 		return c.Redirect().With("error", err.Error()).To(back)
 	}
 	if err := h.Store.ArmLiveStream(c, u.ID, title, time.Now()); err != nil {
@@ -158,6 +171,33 @@ func (h *Handler) StartStream(c fiber.Ctx) error {
 	}
 	h.invalidateLive()
 	return c.Redirect().With("success", "You're armed. Start sending video to go live.").To(back)
+}
+
+// streamName is the Gcore stream name for u's stream.
+func (h *Handler) streamName(u *models.User) string {
+	return fmt.Sprintf("%s-%s-%d", h.Cfg.AppName, u.Username, u.ID)
+}
+
+// recreateStream points ls and its row at a fresh Gcore stream.
+func (h *Handler) recreateStream(ctx context.Context, u *models.User, ls *models.LiveStream) error {
+	s, err := h.Gcore.Create(ctx, h.streamName(u))
+	if err != nil {
+		return err
+	}
+	ls.GcoreStreamID, ls.PushURL, ls.PushURLSRT, ls.PushURLWHIP, ls.IframeURL = s.ID, s.PushURL, s.PushURLSRT, s.PushURLWHIP, s.IframeURL
+	if err := h.Store.ReplaceLiveStreamGcore(ctx, ls); err != nil {
+		if derr := h.Gcore.Delete(ctx, s.ID); derr != nil {
+			h.Log.Error("gcore delete of unsaved stream failed", "stream", s.ID, "err", derr)
+		}
+		return err
+	}
+	return nil
+}
+
+// isGcoreNotFound reports whether Gcore replied 404 (e.g. the stream was deleted there).
+func isGcoreNotFound(err error) bool {
+	var apiErr *gcore.APIError
+	return errors.As(err, &apiErr) && apiErr.Status == fiber.StatusNotFound
 }
 
 // StopStream disarms the user's stream.
