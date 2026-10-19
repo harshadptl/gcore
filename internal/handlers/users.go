@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -112,6 +113,17 @@ func (h *Handler) DeleteAccount(c fiber.Ctx) error {
 	u := CurrentUser(c)
 	if strings.TrimSpace(c.FormValue("confirm")) != u.Username {
 		return c.Redirect().With("error", "Type your username exactly to confirm deletion.").To("/settings#tab=danger")
+	}
+	// User data removal wins over a leftover Gcore stream: log and carry on.
+	// The live_streams row goes via FK cascade.
+	if h.Cfg.GcoreEnabled() {
+		if ls, err := h.Store.LiveStreamByUser(c, u.ID); err == nil {
+			if err := h.Gcore.Delete(c, ls.GcoreStreamID); err != nil {
+				h.Log.Error("orphaned gcore stream", "user_id", u.ID, "gcore_stream_id", ls.GcoreStreamID, "err", err)
+			}
+		} else if !errors.Is(err, store.ErrNotFound) {
+			h.Log.Error("live stream lookup failed during account deletion", "user_id", u.ID, "err", err)
+		}
 	}
 	if err := h.Store.DeleteUser(c, u.ID); err != nil {
 		return err

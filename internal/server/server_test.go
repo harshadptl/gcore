@@ -691,3 +691,38 @@ func TestTerminateUnknown(t *testing.T) {
 		t.Fatalf("status %d, want 404", resp.StatusCode)
 	}
 }
+func TestDeleteAccountDeletesGcoreStream(t *testing.T) {
+	fake, srv := newFakeGcore(t)
+	c, _, csrf, id := armedClient(t, fake, srv.URL)
+	resp, _ := c.do("POST", "/settings/delete", url.Values{"_csrf": {csrf}, "confirm": {"grace"}})
+	if resp.StatusCode != http.StatusSeeOther || resp.Header.Get("Location") != "/" {
+		t.Fatalf("delete: %d %s", resp.StatusCode, resp.Header.Get("Location"))
+	}
+	if n := fake.count(fmt.Sprintf("DELETE /streaming/streams/%d", id)); n != 1 {
+		t.Fatalf("DELETE calls = %d, want 1", n)
+	}
+	fake.mu.Lock()
+	_, held := fake.streams[id]
+	fake.mu.Unlock()
+	if held {
+		t.Fatal("gcore stream still exists after account deletion")
+	}
+}
+
+func TestDeleteAccountSurvivesGcoreFailure(t *testing.T) {
+	fake, srv := newFakeGcore(t)
+	c, _, csrf, id := armedClient(t, fake, srv.URL)
+	fake.mu.Lock()
+	fake.failDelete = true
+	fake.mu.Unlock()
+	resp, _ := c.do("POST", "/settings/delete", url.Values{"_csrf": {csrf}, "confirm": {"grace"}})
+	if resp.StatusCode != http.StatusSeeOther || resp.Header.Get("Location") != "/" {
+		t.Fatalf("delete: %d %s", resp.StatusCode, resp.Header.Get("Location"))
+	}
+	if n := fake.count(fmt.Sprintf("DELETE /streaming/streams/%d", id)); n != 1 {
+		t.Fatalf("DELETE not attempted: %d", n)
+	}
+	if _, err := c.st.UserByUsername(context.Background(), "grace"); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("account not deleted despite gcore failure: %v", err)
+	}
+}
