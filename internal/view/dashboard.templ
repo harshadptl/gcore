@@ -9,10 +9,13 @@ templ DashboardPage(b Base, d DashboardData) {
 				<h1>Dashboard</h1>
 				<p class="text-light">Your posts and how they're doing.</p>
 			</div>
-			<a href="/posts/new" class="button" data-variant="primary">
-				@iconPen()
-				New post
-			</a>
+			<div class="hstack gap-2">
+				<a href="/dashboard/live" class="button outline">Go live</a>
+				<a href="/posts/new" class="button" data-variant="primary">
+					@iconPen()
+					New post
+				</a>
+			</div>
 		</div>
 		<div class="stat-grid">
 			@statCard("Published", itoa(d.Stats.Published))

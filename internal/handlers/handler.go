@@ -13,6 +13,7 @@ import (
 
 	"github.com/harshadptl/gcore/internal/auth"
 	"github.com/harshadptl/gcore/internal/config"
+	"github.com/harshadptl/gcore/internal/gcore"
 	"github.com/harshadptl/gcore/internal/markdown"
 	"github.com/harshadptl/gcore/internal/models"
 	"github.com/harshadptl/gcore/internal/store"
@@ -33,6 +34,8 @@ type Handler struct {
 	Markdown *markdown.Renderer
 	Signer   auth.Signer
 	Log      *slog.Logger
+	Gcore    *gcore.Client
+	live     liveSync
 }
 
 // New wires a Handler from its dependencies.
@@ -43,6 +46,7 @@ func New(cfg *config.Config, st *store.Store, log *slog.Logger) *Handler {
 		Markdown: markdown.New(),
 		Signer:   auth.NewSigner(cfg.SessionSecret),
 		Log:      log,
+		Gcore:    gcore.New(cfg.GcoreAPIBase, cfg.GcoreAPIKey),
 	}
 	if cfg.GoogleEnabled() {
 		h.Google = auth.NewGoogle(cfg.GoogleClientID, cfg.GoogleClientSecret, cfg.GoogleRedirectURL)

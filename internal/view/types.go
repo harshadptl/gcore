@@ -183,3 +183,10 @@ type ErrorData struct {
 	Title   string
 	Message string
 }
+
+// LiveDashboardData drives the owner's go-live control panel.
+type LiveDashboardData struct {
+	Stream     *models.LiveStream // nil until the first start
+	Configured bool               // Gcore API key present
+	Title      string
+}

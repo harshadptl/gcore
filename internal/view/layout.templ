@@ -110,6 +110,7 @@ templ userMenu(b Base) {
 			<hr/>
 			<a role="menuitem" href={ userURL(b.User) }>Your profile</a>
 			<a role="menuitem" href="/dashboard">Dashboard</a>
+			<a role="menuitem" href="/dashboard/live">Go live</a>
 			<a role="menuitem" href="/dashboard/saved">Reading list</a>
 			<a role="menuitem" href="/settings">Settings</a>
 			if b.User.IsAdmin() {

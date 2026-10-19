@@ -155,3 +155,15 @@ func uaOS(ua string) string {
 	}
 	return ""
 }
+
+func liveURL(u *models.User) string { return "/live/" + url.PathEscape(u.Username) }
+
+// splitRTMP splits a push URL at the last "/" into the server URL and the
+// stream key, which is how OBS wants them.
+func splitRTMP(pushURL string) (server, key string) {
+	i := strings.LastIndex(pushURL, "/")
+	if i < 0 {
+		return pushURL, ""
+	}
+	return pushURL[:i], pushURL[i+1:]
+}

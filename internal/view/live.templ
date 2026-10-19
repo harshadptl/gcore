@@ -1,0 +1,106 @@
+package view
+
+import "github.com/harshadptl/gcore/internal/models"
+
+templ LiveDashboardPage(b Base, d LiveDashboardData) {
+	@Layout(b) {
+		<div class="page-head">
+			<a href="/dashboard" class="text-light back-link">
+				@iconArrowLeft()
+				Dashboard
+			</a>
+			<h1>Go live</h1>
+			<p class="text-light">Stream from OBS or any RTMP/SRT encoder.</p>
+		</div>
+		if !d.Configured {
+			@EmptyState("Live streaming isn't set up", "This server has no GCORE_API_KEY configured, so streaming is unavailable.") {
+				<a href="/dashboard" class="button outline">Back to dashboard</a>
+			}
+		} else {
+			<article class="card">
+				<div class="hstack justify-between">
+					<h3>Stream</h3>
+					if d.Stream != nil {
+						<span class="badge" data-variant={ liveVariant(d.Stream.State()) }>{ d.Stream.State() }</span>
+					} else {
+						<span class="badge">{ models.StreamOff }</span>
+					}
+				</div>
+				<form method="post" action="/stream/start" class="stack">
+					@CSRFField(b.CSRF)
+					<label>
+						Title
+						<input type="text" name="title" value={ d.Title } maxlength="100" placeholder="What are you streaming?"/>
+					</label>
+					<div class="hstack gap-2">
+						if d.Stream != nil && d.Stream.Active {
+							<button type="submit" class="button">Update title</button>
+						} else {
+							<button type="submit" class="button" data-variant="primary">Start stream</button>
+						}
+					</div>
+				</form>
+				if d.Stream != nil && d.Stream.Active {
+					<form method="post" action="/stream/stop" id="stream-stop-form" class="mt-4">
+						@CSRFField(b.CSRF)
+						<button type="submit" class="button outline">Stop stream</button>
+					</form>
+				}
+			</article>
+			if d.Stream != nil {
+				@obsCard(d.Stream)
+				if b.User != nil {
+					<p class="mt-4">
+						<a href={ templ.SafeURL(liveURL(b.User)) } class="button outline small">Watch page</a>
+					</p>
+				}
+			}
+		}
+	}
+}
+
+templ obsCard(s *models.LiveStream) {
+	{{ server, key := splitRTMP(s.PushURL) }}
+	<article class="card mt-4">
+		<h3>Encoder settings</h3>
+		<dl>
+			<dt>Server</dt>
+			<dd class="hstack gap-2">
+				<code>{ server }</code>
+				<button type="button" class="outline small" data-copy={ server }>Copy</button>
+			</dd>
+			<dt>Stream key</dt>
+			<dd>
+				<details>
+					<summary>Show stream key</summary>
+					<div class="hstack gap-2">
+						<code>{ key }</code>
+						<button type="button" class="outline small" data-copy={ key }>Copy</button>
+					</div>
+				</details>
+			</dd>
+			if s.PushURLSRT != "" {
+				<dt>SRT URL</dt>
+				<dd>
+					<details>
+						<summary>Show SRT URL</summary>
+						<div class="hstack gap-2">
+							<code>{ s.PushURLSRT }</code>
+							<button type="button" class="outline small" data-copy={ s.PushURLSRT }>Copy</button>
+						</div>
+					</details>
+				</dd>
+			}
+		</dl>
+	</article>
+}
+
+func liveVariant(state string) string {
+	switch state {
+	case models.StreamLive:
+		return "success"
+	case models.StreamArmed:
+		return "warning"
+	}
+	return ""
+}
