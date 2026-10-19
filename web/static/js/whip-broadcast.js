@@ -51,12 +51,12 @@
     setBusy(false);
   };
 
+  const del = (url) => fetch(url, { method: 'DELETE' }).catch(() => {});
+
   const stop = async () => {
     if (stopped) return;
     stopped = true;
-    if (resourceURL) {
-      try { await fetch(resourceURL, { method: 'DELETE' }); } catch (e) { /* best effort */ }
-    }
+    if (resourceURL) await del(resourceURL);
     cleanup();
     document.getElementById('stream-stop-form').requestSubmit();
   };
@@ -66,29 +66,45 @@
     stopped = false;
     setBusy(true);
     setStatus('Requesting media...');
+    // Locals so a Stop during any await still lets us release what we acquired afterwards.
+    let s, conn, res;
+    const abort = () => {
+      if (conn) conn.close();
+      if (s) s.getTracks().forEach((t) => t.stop());
+      if (res) del(res);
+    };
     try {
-      stream = await getMedia();
-      preview.srcObject = stream;
-      pc = new RTCPeerConnection();
-      stream.getTracks().forEach((track) => {
-        pc.addTransceiver(track, { direction: 'sendonly' });
+      s = await getMedia();
+      stream = s;
+      if (stopped) return abort();
+      preview.srcObject = s;
+      conn = pc = new RTCPeerConnection();
+      s.getTracks().forEach((track) => {
+        conn.addTransceiver(track, { direction: 'sendonly' });
         track.addEventListener('ended', stop);
       });
-      await pc.setLocalDescription(await pc.createOffer());
-      await iceComplete(pc);
+      await conn.setLocalDescription(await conn.createOffer());
+      if (stopped) return abort();
+      await iceComplete(conn);
+      if (stopped) return abort();
       setStatus('Connecting...');
       const resp = await fetch(whipURL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/sdp' },
-        body: pc.localDescription.sdp,
+        body: conn.localDescription.sdp,
       });
       if (resp.status !== 201 && resp.status !== 200) throw new Error(`WHIP server replied ${resp.status}`);
       // Location is readable cross-origin only if exposed via CORS; otherwise Stop just closes the PC.
       const loc = resp.headers.get('Location');
-      if (loc) resourceURL = new URL(loc, whipURL).href;
-      await pc.setRemoteDescription({ type: 'answer', sdp: await resp.text() });
+      if (loc) res = resourceURL = new URL(loc, whipURL).href;
+      const sdp = await resp.text();
+      if (stopped) return abort();
+      await conn.setRemoteDescription({ type: 'answer', sdp });
+      if (stopped) return abort();
       setStatus('You are live.');
     } catch (err) {
+      abort();
+      if (stopped) return;
       cleanup();
       stopped = true;
       setStatus(`Could not go live: ${err.message || err}`);
