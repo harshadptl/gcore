@@ -168,3 +168,65 @@ func TestSessions(t *testing.T) {
 		t.Fatalf("deleted session still valid: %v", err)
 	}
 }
+
+func TestLiveStreamStore(t *testing.T) {
+	ctx := context.Background()
+	s := newStore(t)
+	u, err := s.UpsertOAuthUser(ctx, store.OAuthProfile{Subject: "g-live", Email: "live@example.com", Name: "Live Person"}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.LiveStreamByUser(ctx, u.ID); err != store.ErrNotFound {
+		t.Fatalf("want ErrNotFound, got %v", err)
+	}
+	ls := &models.LiveStream{UserID: u.ID, GcoreStreamID: 42, PushURL: "rtmp://x"}
+	if created, err := s.CreateLiveStream(ctx, ls); err != nil || !created {
+		t.Fatalf("first create: %v %v", created, err)
+	}
+	if created, err := s.CreateLiveStream(ctx, &models.LiveStream{UserID: u.ID, GcoreStreamID: 99}); err != nil || created {
+		t.Fatalf("second create must be a no-op: %v %v", created, err)
+	}
+	got, err := s.LiveStreamByUser(ctx, u.ID)
+	if err != nil || got.GcoreStreamID != 42 || got.PushURL != "rtmp://x" || got.Active || got.Live {
+		t.Fatalf("get: %v %+v", err, got)
+	}
+
+	now := time.Now().UTC().Truncate(time.Second)
+	if err := s.ArmLiveStream(ctx, u.ID, "My show", now); err != nil {
+		t.Fatal(err)
+	}
+	if c, err := s.SyncCandidates(ctx); err != nil || len(c) != 1 || !c[0].Active || c[0].Title != "My show" {
+		t.Fatalf("candidates: %v %+v", err, c)
+	}
+	if l, err := s.ListLive(ctx); err != nil || len(l) != 0 {
+		t.Fatalf("armed is not live: %v %+v", err, l)
+	}
+
+	got, _ = s.LiveStreamByUser(ctx, u.ID)
+	got.Apply(true, true, now.Add(time.Minute))
+	if err := s.SaveLiveStatus(ctx, got); err != nil {
+		t.Fatal(err)
+	}
+	l, err := s.ListLive(ctx)
+	if err != nil || len(l) != 1 || l[0].User == nil || l[0].User.Username != "live" {
+		t.Fatalf("live: %v %+v", err, l)
+	}
+
+	if err := s.DisarmLiveStream(ctx, u.ID, now.Add(2*time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	got, _ = s.LiveStreamByUser(ctx, u.ID)
+	if got.Active || got.Live || got.EndedAt.IsZero() {
+		t.Fatalf("disarm should end a live stream: %+v", got)
+	}
+	if l, err := s.ListLive(ctx); err != nil || len(l) != 0 {
+		t.Fatalf("after disarm: %v %+v", err, l)
+	}
+
+	if err := s.DeleteUser(ctx, u.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.LiveStreamByUser(ctx, u.ID); err != store.ErrNotFound {
+		t.Fatalf("cascade: want ErrNotFound, got %v", err)
+	}
+}

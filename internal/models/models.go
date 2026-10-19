@@ -233,6 +233,77 @@ type Session struct {
 }
 
 // All returns every model, for registration with bun.DB.
+// AbandonAfter is how long an armed, non-live stream may sit idle before the
+// syncer disarms it.
+const AbandonAfter = 10 * time.Minute
+
+const (
+	StreamLive  = "live"
+	StreamArmed = "armed"
+	StreamOff   = "off"
+)
+
+type LiveStream struct {
+	bun.BaseModel `bun:"table:live_streams,alias:ls"`
+
+	UserID        int64     `bun:",pk"`
+	User          *User     `bun:"rel:belongs-to,join:user_id=id"`
+	GcoreStreamID int64     `bun:"gcore_stream_id,notnull"`
+	Title         string    `bun:",notnull"`
+	PushURL       string    `bun:"push_url,notnull"`
+	PushURLSRT    string    `bun:"push_url_srt,notnull"`
+	PushURLWHIP   string    `bun:"push_url_whip,notnull"`
+	IframeURL     string    `bun:"iframe_url,notnull"`
+	Active        bool      `bun:",notnull"`
+	Live          bool      `bun:",notnull"`
+	ArmedAt       time.Time `bun:",nullzero"`
+	StartedAt     time.Time `bun:",nullzero"`
+	EndedAt       time.Time `bun:",nullzero"`
+	SyncedAt      time.Time `bun:",nullzero,notnull,default:current_timestamp"`
+	timestamps
+}
+
+var _ bun.BeforeAppendModelHook = (*LiveStream)(nil)
+
+func (s *LiveStream) BeforeAppendModel(_ context.Context, q bun.Query) error {
+	s.touch(q)
+	return nil
+}
+
+// Apply records the observed Gcore state, stamping the transition times.
+func (s *LiveStream) Apply(active, live bool, now time.Time) {
+	if live && !s.Live {
+		s.StartedAt = now
+	}
+	if !live && s.Live {
+		s.EndedAt = now
+	}
+	if active && !s.Active {
+		s.ArmedAt = now
+	}
+	s.Active, s.Live, s.SyncedAt = active, live, now
+}
+
+// Abandoned reports whether an armed stream never went live (or stopped being
+// live) for longer than AbandonAfter.
+func (s *LiveStream) Abandoned(now time.Time) bool {
+	since := s.ArmedAt
+	if s.EndedAt.After(since) {
+		since = s.EndedAt
+	}
+	return s.Active && !s.Live && now.Sub(since) > AbandonAfter
+}
+
+func (s *LiveStream) State() string {
+	switch {
+	case s.Live:
+		return StreamLive
+	case s.Active:
+		return StreamArmed
+	}
+	return StreamOff
+}
+
 func All() []any {
 	return []any{
 		(*PostTag)(nil), // m2m join models must be registered first
@@ -243,5 +314,6 @@ func All() []any {
 		(*Like)(nil),
 		(*Bookmark)(nil),
 		(*Session)(nil),
+		(*LiveStream)(nil),
 	}
 }
