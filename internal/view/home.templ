@@ -15,6 +15,7 @@ templ HomePage(b Base, d HomeData) {
 				</p>
 				<div class="hstack">
 					if b.User != nil {
+						<a href="/dashboard/live" class="button" data-variant="primary">Go live</a>
 						<a href="/posts/new" class="button" data-variant="primary">Write a post</a>
 					} else {
 						<a href="/login" class="button" data-variant="primary">Start writing</a>
